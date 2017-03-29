@@ -131,16 +131,11 @@ useUEFI=true
 
 #determine correct file / URL
 firmware_source=${fullrom_source}
-if [[ "$hasUEFIoption" = true || "$hasLegacyOption" = true ]]; then
-    if [ "$useUEFI" = true ]; then
-        eval coreboot_file=$`echo "coreboot_uefi_${device}"`
-    else
-        if [ "$isHswBox" = true ]; then
-            coreboot_file=$coreboot_hsw_box
-        else
-            eval coreboot_file=$`echo "coreboot_${device}"`
-        fi
-    fi
+if [ "$isBaytrail" = true ]; then
+    firmware_source=${fullrom_source_coolstar}
+fi
+if [[ "$hasUEFIoption" = true ]]; then
+    eval coreboot_file=$`echo "coreboot_uefi_${device}"`
 else
     exit_red "Unknown or unsupported device (${device^^}); cannot continue."; return 1
 fi

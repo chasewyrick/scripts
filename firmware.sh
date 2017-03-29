@@ -126,30 +126,8 @@ echo -e ""
 # ensure hardware write protect disabled
 [[ "$wpEnabled" = true ]] && { exit_red "\nHardware write-protect enabled, cannot flash Full ROM firmware."; return 1; }
 
-#UEFI or legacy firmware
-if [[ ! -z "$1" || ( -d /sys/firmware/efi && "$unlockMenu" = false ) || "$hasLegacyOption" = false ]]; then
-    useUEFI=true
-else
-    useUEFI=false
-    if [[ "$hasUEFIoption" = true ]]; then
-        echo -e ""
-        echo_yellow "Install UEFI-compatible firmware?"
-        echo -e "UEFI firmware is preferred for Windows and OSX;
-Linux requires the use of a boot manager like rEFInd.
-Some Linux distros are not UEFI-compatible and work better 
-with Legacy Boot (SeaBIOS) firmware.  If you have an existing
-Linux install you want to keep using, then choose the Legacy option.
-"
-        REPLY=""
-        while [[ "$REPLY" != "U" && "$REPLY" != "u" && "$REPLY" != "L" && "$REPLY" != "l"  ]]
-        do
-            read -p "Enter 'U' for UEFI, 'L' for Legacy: "
-            if [[ "$REPLY" = "U" || "$REPLY" = "u" ]]; then
-                useUEFI=true
-            fi
-        done 
-    fi
-fi
+#UEFI Only
+useUEFI=true
 
 #determine correct file / URL
 firmware_source=${fullrom_source}
@@ -175,18 +153,10 @@ if [ "$device" = "peppy" ]; then
         echo -e ""
         read -p "Unable to automatically determine trackpad type. Does your Peppy have an Elan pad? [y/N] "
         if [[ "$REPLY" = "y" || "$REPLY" = "Y" ]]; then
-            if [ "$useUEFI" = true ]; then
-                coreboot_file=${coreboot_uefi_peppy_elan}
-            else 
-                coreboot_file=${coreboot_peppy_elan}
-            fi
+            coreboot_file=${coreboot_uefi_peppy_elan}
         fi
     elif [[ $hasElan != "" ]]; then 
-        if [ "$useUEFI" = true ]; then
-            coreboot_file=${coreboot_uefi_peppy_elan}
-        else 
-            coreboot_file=${coreboot_peppy_elan}
-        fi
+        coreboot_file=${coreboot_uefi_peppy_elan}
     fi
 fi
 
@@ -198,18 +168,10 @@ if [ "$device" = "parrot" ]; then
         echo -e ""
         read -p "Unable to automatically determine CPU type. Does your Parrot have a Celeron 1007U CPU? [y/N] "
         if [[ "$REPLY" = "y" || "$REPLY" = "Y" ]]; then
-            if [ "$useUEFI" = true ]; then
-                coreboot_file=${coreboot_uefi_parrot_ivb}
-            else 
-                coreboot_file=${coreboot_parrot_ivb}
-            fi
+            coreboot_file=${coreboot_uefi_parrot_ivb}
         fi
     elif [[ $isIvb != "" ]]; then 
-        if [ "$useUEFI" = true ]; then
-            coreboot_file=${coreboot_uefi_parrot_ivb}
-        else 
-            coreboot_file=${coreboot_parrot_ivb}
-        fi
+        coreboot_file=${coreboot_uefi_parrot_ivb}
     fi
 fi
 
@@ -226,17 +188,9 @@ an Acer C740 (Auron_Paine) or Acer C910/CB5-571 (Auron_Yuna)?
     do
         read -p "Enter 'P' for Auron_Paine, 'Y' for Auron_Yuna: "
         if [[ "$REPLY" = "Y" || "$REPLY" = "y" ]]; then
-            if [ "$useUEFI" = true ]; then
-                coreboot_file=${coreboot_uefi_auron_yuna}
-            else 
-                coreboot_file=${coreboot_auron_yuna}
-            fi
+            coreboot_file=${coreboot_uefi_auron_yuna}
         else
-            if [ "$useUEFI" = true ]; then
-                coreboot_file=${coreboot_uefi_auron_paine}
-            else 
-                coreboot_file=${coreboot_auron_paine}
-            fi
+            coreboot_file=${coreboot_uefi_auron_paine}
         fi
     done 
 fi
@@ -265,54 +219,8 @@ fi
 #check that backup succeeded
 [ $? -ne 0 ] && return 1
 
-#headless?
-useHeadless=false
-if [[ $useUEFI = false && ( "$isHswBox" = true || "$isBdwBox" = true ) ]]; then
-    echo -e ""
-    echo_yellow "Install \"headless\" firmware?"
-    read -p "This is only needed for servers running without a connected display. [y/N] "
-    if [[ "$REPLY" = "Y" || "$REPLY" = "y" ]]; then
-        useHeadless=true
-    fi
-fi
-
 #USB boot priority
 preferUSB=false
-if [ $useUEFI = false ]; then
-    echo -e ""
-    echo_yellow "Default to booting from USB?"
-    echo -e "
-    If you default to USB, then any bootable USB device 
-    will have boot priority over the internal SSD.
-    If you default to SSD, you will need to manually select
-    the USB Device from Boot Manager in order to boot it.
-    "
-    REPLY=""
-    while [[ "$REPLY" != "U" && "$REPLY" != "u" && "$REPLY" != "S" && "$REPLY" != "s"  ]]
-    do
-        read -p "Enter 'U' for USB, 'S' for SSD: "
-        if [[ "$REPLY" = "U" || "$REPLY" = "u" ]]; then
-            preferUSB=true
-        fi
-    done
-fi
-
-#add PXE?
-addPXE=false
-if [[  $useUEFI = false && ( "$isHswBox" = true || "$isBdwBox" = true || "$device" = "ninja" ) ]]; then
-    echo -e ""
-    echo_yellow "Add PXE network booting capability?"
-    read -p "(This is not needed for by most users) [y/N] "
-    if [[ "$REPLY" = "Y" || "$REPLY" = "y" ]]; then
-        addPXE=true
-        echo -e ""
-        echo_yellow "Boot PXE by default?"
-        read -p "(will fall back to SSD/USB) [y/N] "
-        if [[ "$REPLY" = "Y" || "$REPLY" = "y" ]]; then
-            pxeDefault=true 
-        fi
-    fi
-fi
 
 #download firmware file
 cd /tmp
@@ -327,42 +235,6 @@ md5sum -c ${coreboot_file}.md5 --quiet > /dev/null 2>&1
 #check if we have a VPD to restore
 if [ -f /tmp/vpd.bin ]; then
     ${cbfstoolcmd} ${coreboot_file} add -n vpd.bin -f /tmp/vpd.bin -t raw > /dev/null 2>&1
-fi
-#preferUSB?
-if [[ "$preferUSB" = true  && $useUEFI = false ]]; then
-	curl -s -L -o bootorder "${cbfs_source}bootorder.usb"
-	if [ $? -ne 0 ]; then
-	    echo_red "Unable to download bootorder file; boot order cannot be changed."
-	else
-	    ${cbfstoolcmd} ${coreboot_file} remove -n bootorder > /dev/null 2>&1 
-	    ${cbfstoolcmd} ${coreboot_file} add -n bootorder -f /tmp/bootorder -t raw > /dev/null 2>&1
-	fi
-fi
-#useHeadless?
-if [ "$useHeadless" = true  ]; then
-    curl -s -L -O "${cbfs_source}${hswbdw_headless_vbios}"
-    if [ $? -ne 0 ]; then
-        echo_red "Unable to download headless VGA BIOS; headless firmware cannot be installed."
-    else
-        ${cbfstoolcmd} ${coreboot_file} remove -n pci8086,0406.rom > /dev/null 2>&1
-        ${cbfstoolcmd} ${coreboot_file} add -f ${hswbdw_headless_vbios} -n pci8086,0406.rom -t optionrom > /dev/null 2>&1
-    fi      
-fi
-#addPXE?
-if [ "$addPXE" = true  ]; then
-    curl -s -L -O "${cbfs_source}${pxe_optionrom}"
-    if [ $? -ne 0 ]; then
-        echo_red "Unable to download PXE option ROM; PXE capability cannot be added."
-    else
-        ${cbfstoolcmd} ${coreboot_file} add -f ${pxe_optionrom} -n pci10ec,8168.rom -t optionrom > /dev/null 2>&1
-        #PXE default?
-        if [ "$pxeDefault" = true  ]; then
-            ${cbfstoolcmd} ${coreboot_file} extract -n bootorder -f /tmp/bootorder > /dev/null 2>&1
-            ${cbfstoolcmd} ${coreboot_file} remove -n bootorder > /dev/null 2>&1
-            sed -i '1s/^/\/pci@i0cf8\/pci-bridge@1c\/*@0\n/' /tmp/bootorder
-            ${cbfstoolcmd} ${coreboot_file} add -n bootorder -f /tmp/bootorder -t raw > /dev/null 2>&1
-        fi
-    fi      
 fi
 
 #disable software write-protect

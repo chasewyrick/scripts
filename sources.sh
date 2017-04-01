@@ -7,8 +7,6 @@ script_date="[2017-03-25]"
 
 #where the stuff is
 util_source="https://www.mrchromebox.tech/files/util/"
-rwlegacy_source="https://www.mrchromebox.tech/files/firmware/rw_legacy/"
-bootstub_source="https://www.mrchromebox.tech/files/firmware/boot_stub/"
 fullrom_source="https://www.mrchromebox.tech/files/firmware/full_rom/"
 fullrom_source_coolstar="https://www.coolstar.org/chromebook/downloads/ROM/"
 shellball_source="https://www.mrchromebox.tech/files/firmware/shellball/"
@@ -69,22 +67,3 @@ coreboot_uefi_squawks="coreboot_tiano-squawks-coolstar_20170329.rom"
 coreboot_uefi_sumo="coreboot_tiano-sumo-coolstar_20170329.rom"
 coreboot_uefi_swanky="coreboot_tiano-swanky-coolstar_20170329.rom"
 coreboot_uefi_winky="coreboot_tiano-winky-coolstar_20170329.rom"
-
-
-#RW_LEGACY payloads
-seabios_hswbdw_box="seabios-hswbdw_box-mrchromebox_20161107.bin"
-seabios_hswbdw_book="seabios-hswbdw_book-mrchromebox_20170123.bin"
-seabios_baytrail="seabios-byt-mrchromebox_20161107.bin"
-seabios_braswell="seabios-bsw-mrchromebox_20161107.bin"
-seabios_skylake="seabios-skl-mrchromebox_20161107.bin"
-seabios_link="seabios-link.bin"
-
-#BOOT_STUB payloads
-bootstub_payload_baytrail="seabios-byt_bootstub-mrchromebox_20161107.bin"
-
-
-#hsw/bdw headless VBIOS
-hswbdw_headless_vbios="hswbdw_vgabios_1040_cbox_headless.dat"
-
-#PXE ROM for Chromeboxes w/RTL81xx ethernet
-pxe_optionrom="10ec8168.rom"

@@ -6,11 +6,10 @@
 script_date="[2017-03-25]"
 
 #where the stuff is
-util_source="https://www.mrchromebox.tech/files/util/"
+util_source="https://www.coolstar.org/chromebook/downloads/firmwareutils/"
 fullrom_source="https://www.mrchromebox.tech/files/firmware/full_rom/"
 fullrom_source_coolstar="https://www.coolstar.org/chromebook/downloads/ROM/"
 shellball_source="https://www.mrchromebox.tech/files/firmware/shellball/"
-cbfs_source="https://www.mrchromebox.tech/files/firmware/cbfs/"
 
 #LE sources
 LE_url_official="http://releases.libreelec.tv/"

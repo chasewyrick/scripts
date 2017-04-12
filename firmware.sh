@@ -24,9 +24,6 @@ useUEFI=true
 
 #determine correct file / URL
 firmware_source=${fullrom_source}
-if [ "$isBaytrail" = true ]; then
-    firmware_source=${fullrom_source_coolstar}
-fi
 if [[ "$hasUEFIoption" = true ]]; then
     eval coreboot_file=$`echo "coreboot_uefi_${device}"`
 else

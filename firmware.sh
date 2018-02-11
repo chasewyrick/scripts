@@ -111,10 +111,10 @@ preferUSB=false
 cd /tmp
 echo_yellow "\nDownloading Full ROM firmware\n(${coreboot_file})"
 curl -s -L -O "${firmware_source}${coreboot_file}"
-curl -s -L -O "${firmware_source}${coreboot_file}.md5"
+curl -s -L -O "${firmware_source}${coreboot_file}.sha1"
 
 #verify checksum on downloaded file
-md5sum -c ${coreboot_file}.md5 --quiet > /dev/null 2>&1
+sha1sum -c ${coreboot_file}.sha1 --quiet > /dev/null 2>&1
 [[ $? -ne 0 ]] && { exit_red "Firmware download checksum fail; download corrupted, cannot flash."; return 1; }
 
 #check if we have a VPD to restore

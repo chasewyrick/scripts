@@ -24,17 +24,21 @@ isBaytrail=false
 isBraswell=false
 isSkylake=false
 isSnbIvb=false
+isApl=false
+isKbl=false
 isUnsupported=false
 firmwareType=""
 isStock=true
 isFullRom=false
 isBootStub=false
+isUEFI=false
 hasRwLegacy=false
 unlockMenu=false
 hasUEFIoption=false
 hasLegacyOption=false
 hasShellball=false
 wpEnabled=false
+hasLAN=false
 
 hsw_boxes=('<mccloud>' '<panther>' '<tricky>' '<zako>');
 hsw_books=('<falco>' '<leon>' '<monroe>' '<peppy>' '<wolf>');
@@ -42,11 +46,14 @@ bdw_boxes=('<guado>' '<rikku>' '<tidus>');
 bdw_books=('<auron_paine>' '<auron_yuna>' '<buddy>' '<gandof>' '<lulu>' '<samus>');
 baytrail=('<banjo>' '<candy>' '<clapper>' '<enguarde>' '<glimmer>' '<gnawty>' '<heli>' '<kip>' '<ninja>' '<orco>' '<quawks>' '<squawks>' '<sumo>' '<swanky>' '<winky>');
 braswell=('<banon>' '<celes>' '<cyan>' '<edgar>' '<kefka>' '<reks>' '<relm>'  '<setzer>' '<terra>' '<ultima>' '<wizpig>');
-skylake=('<asuka>' '<cave>' '<chell>' '<lars>' '<sentry>');
+skylake=('<asuka>' '<caroline>' '<cave>' '<chell>' '<lars>' '<lili>' '<sentry>');
 snb_ivb=('<butterfly>' '<link>' '<lumpy>' '<parrot>' '<stout>' '<stumpy>')
+apl=('<astronaut>' '<blacktip>' '<coral>' '<electro>' '<epaulette>' '<lava>' '<nasher>'  '<pyro>' '<reef>'  '<robo>' '<sand>' '<santa>' '<snappy>')
+kbl_boxes=('<bleemo>''<fizz>' '<kench>' '<sion>' '<teemo>' '<wukong>')
+kbl=($(printf "%s " "${kbl_boxes[@]}") '<akali>' '<eve>' '<nami>' '<nautilus>' '<nocturne>' '<pantheon>' '<sona>' '<soraka>' '<vayne>')
 
-UEFI_ROMS=($(printf "%s " "${hsw_boxes[@]}" "${hsw_books[@]}" "${bdw_boxes[@]}" "${bdw_books[@]}" "${baytrail[@]}" "${snb_ivb[@]}" "${braswell[@]}"));
-shellballs=($(printf "%s " "${hsw_boxes[@]}" "${hsw_books[@]}" "${bdw_boxes[@]}" "${bdw_books[@]}" "${baytrail[@]}" "${snb_ivb[@]}" "${braswell[@]}"));
+UEFI_ROMS=($(printf "%s " "${hsw_boxes[@]}" "${hsw_books[@]}" "${bdw_boxes[@]}" "${bdw_books[@]}" "${baytrail[@]}" "${snb_ivb[@]}" "${braswell[@]}" "${skylake[@]}" "${kbl_boxes[@]}" "eve"));
+shellballs=($(printf "%s " "${hsw_boxes[@]}" "${hsw_books[@]}" "${bdw_boxes[@]}" "${bdw_books[@]}" "${baytrail[@]}" "${snb_ivb[@]}" "${braswell[@]}" "${skylake[@]}"));
 
 #menu text output
 NORMAL=$(echo "\033[m")
@@ -55,6 +62,7 @@ NUMBER=$(echo "\033[33m") #yellow
 FGRED=$(echo "\033[41m")
 RED_TEXT=$(echo "\033[31m")
 GRAY_TEXT=$(echo "\033[1;30m")
+GREEN_TEXT=$(echo "\033[1;32m")
 ENTER_LINE=$(echo "\033[33m")
 
 function echo_red()
@@ -78,7 +86,7 @@ echo -e '\e[0m'
 function exit_red()
 {
     echo_red "$@"
-    read -p "Press [Enter] to return to the main menu."
+    read -ep "Press [Enter] to return to the main menu."
 }
 
 function die()
@@ -104,13 +112,13 @@ fi
 rootdev=${intStor}
 if [ "$(which rootdev)" ]; then
     rootdev=$(rootdev -d -s)
-fi  
+fi
 eval usb_devs="($(fdisk -l 2> /dev/null | grep -v "Disk ${intStor}" | grep -v "Disk $rootdev" | grep 'Disk /dev/sd' | awk -F"/dev/sd|:" '{print $2}'))"
 #ensure at least 1 drive available
 [ "$usb_devs" != "" ] || return 1
 echo -e "\nDevices available:\n"
 num_usb_devs=0
-for dev in "${usb_devs[@]}" 
+for dev in "${usb_devs[@]}"
 do
 let "num_usb_devs+=1"
 vendor=$(udevadm info --query=all --name=sd${dev} | grep -E "ID_VENDOR=" | awk -F"=" '{print $2}')
@@ -123,7 +131,7 @@ fi
 if [ -n "${model}" ]; then
     echo -n " ${model}"
 fi
-echo -e " (${sz} GB)"  
+echo -e " (${sz} GB)"
 done
 echo -e ""
 return 0
@@ -143,13 +151,13 @@ if [ ! -f ${cbfstoolcmd} ]; then
         #have to use partition 12 (27 for cloudready) on rootdev due to noexec restrictions
         rootdev=$(rootdev -d -s)
         [[ "$isCloudready" = true ]] && part_num="27" || part_num="12"
-        [[ "${rootdev}" =~ "mmcblk" || "${rootdev}" =~ "nvme" ]] && part_num="p${part_num}"  
+        [[ "${rootdev}" =~ "mmcblk" || "${rootdev}" =~ "nvme" ]] && part_num="p${part_num}"
         boot_mounted=$(mount | grep "${rootdev}""${part_num}")
         if [ "${boot_mounted}" = "" ]; then
             #mount boot
             mkdir /tmp/boot >/dev/null 2>&1
             mount "$(rootdev -d -s)""${part_num}" /tmp/boot
-            if [ $? -ne 0 ]; then 
+            if [ $? -ne 0 ]; then
                 echo_red "Error mounting boot partition; cannot proceed."
                 return 1
             fi
@@ -158,17 +166,17 @@ if [ ! -f ${cbfstoolcmd} ]; then
         mkdir /tmp/boot/util 2>/dev/null
         cd /tmp/boot/util
     fi
-    
+
     #echo_yellow "Downloading cbfstool utility"
-    curl -s -L -O "${util_source}"/cbfstool.tar.gz
-    if [ $? -ne 0 ]; then 
+    curl -sLO "${util_source}"/cbfstool.tar.gz
+    if [ $? -ne 0 ]; then
         echo_red "Error downloading cbfstool; cannot proceed."
         #restore working dir
         cd ${working_dir}
         return 1
     fi
     tar -zxf cbfstool.tar.gz --no-same-owner
-    if [ $? -ne 0 ]; then 
+    if [ $? -ne 0 ]; then
         echo_red "Error extracting cbfstool; cannot proceed."
         #restore working dir
         cd ${working_dir}
@@ -179,7 +187,7 @@ if [ ! -f ${cbfstoolcmd} ]; then
     #restore working dir
     cd ${working_dir}
 fi
-return 0    
+return 0
 }
 
 
@@ -192,15 +200,15 @@ if [ ! -f ${flashromcmd} ]; then
     working_dir=`pwd`
     cd /tmp
 
-    curl -s -L -O "${util_source}"/flashrom.tar.gz
-    if [ $? -ne 0 ]; then 
+    curl -sLO "${util_source}"/flashrom.tar.gz
+    if [ $? -ne 0 ]; then
         echo_red "Error downloading flashrom; cannot proceed."
         #restore working dir
         cd ${working_dir}
         return 1
     fi
     tar -zxf flashrom.tar.gz
-    if [ $? -ne 0 ]; then 
+    if [ $? -ne 0 ]; then
         echo_red "Error extracting flashrom; cannot proceed."
         #restore working dir
         cd ${working_dir}
@@ -211,7 +219,7 @@ if [ ! -f ${flashromcmd} ]; then
     #restore working dir
     cd ${working_dir}
 fi
-return 0    
+return 0
 }
 
 
@@ -224,15 +232,15 @@ if [ ! -f ${gbbutilitycmd} ]; then
     working_dir=`pwd`
     cd /tmp
 
-    curl -s -L -O "${util_source}"/gbb_utility.tar.gz
-    if [ $? -ne 0 ]; then 
+    curl -sLO "${util_source}"/gbb_utility.tar.gz
+    if [ $? -ne 0 ]; then
         echo_red "Error downloading gbb_utility; cannot proceed."
         #restore working dir
         cd ${working_dir}
         return 1
     fi
     tar -zxf gbb_utility.tar.gz
-    if [ $? -ne 0 ]; then 
+    if [ $? -ne 0 ]; then
         echo_red "Error extracting gbb_utility; cannot proceed."
         #restore working dir
         cd ${working_dir}
@@ -243,7 +251,7 @@ if [ ! -f ${gbbutilitycmd} ]; then
     #restore working dir
     cd ${working_dir}
 fi
-return 0    
+return 0
 }
 
 
@@ -251,14 +259,14 @@ return 0
 # Prelim Setup #
 ################
 
-function prelim_setup() 
+function prelim_setup()
 {
 
-# Must run as root 
+# Must run as root
 [ "$(whoami)" = "root" ] || die "You need to run this script as root; use 'sudo bash <script name>'"
 
 #must be x86_64
-[ "$(uname -m)"  = 'x86_64' ] || die "This script must be run from a 64-bit OS"
+[ "$(uname -m)"  = 'x86_64' ] || die "This script only supports 64-bit OS on Intel-based devices; ARM devices are not supported."
 
 #check for required tools
 which dmidecode > /dev/null 2>&1
@@ -279,24 +287,12 @@ fi
 
 
 #get device name
-device=$(dmidecode -s system-product-name | tr '[:upper:]' '[:lower:]' | awk 'NR==1{print $1}')
+device=$(dmidecode -s system-product-name | tr '[:upper:]' '[:lower:]' | sed 's/ /_/g' | awk 'NR==1{print $1}')
 if [[ $? -ne 0 || "${device}" = "" ]]; then
     echo_red "Unable to determine Chromebox/book model; cannot continue."
     echo_red "It's likely you are using an unsupported ARM-based ChromeOS device,\nonly Intel-based devices are supported at this time."
     return 1
 fi
-[[ "${hsw_boxes[@]}" =~ "$device" ]] && isHswBox=true
-[[ "${bdw_boxes[@]}" =~ "$device" ]] && isBdwBox=true
-[[ "${hsw_books[@]}" =~ "$device" ]] && isHswBook=true
-[[ "${bdw_books[@]}" =~ "$device" ]] && isBdwBook=true
-[[ "${baytrail[@]}" =~ "$device" ]] && isBaytrail=true
-[[ "${braswell[@]}" =~ "$device" ]] && isBraswell=true
-[[ "${skylake[@]}" =~ "$device" ]] && isSkylake=true
-[[ "${snb_ivb[@]}" =~ "$device" ]] && isSnbIvb=true
-[[ "${shellballs[@]}" =~ "$device" ]] && hasShellball=true
-[[ "${UEFI_ROMS[@]}" =~ "$device" ]] && hasUEFIoption=true
-[[ "$isHswBox" = true || "$isBdwBox" = true || "$isHswBook" = true || "$isBdwBook" = true || "$isBaytrail" = true \
-    || "$isBraswell" = true || "$isSkylake" = true || "$isSnbIvb" = "true" ]] || isUnsupported=true
 
 #check if running under ChromeOS / ChromiumOS
 if [ -f /etc/lsb-release ]; then
@@ -321,7 +317,12 @@ if [[ "$isChromeOS" = true || "$isChromiumOS" = true ]]; then
     #disable power mgmt
     initctl stop powerd > /dev/null 2>&1
     #set cmds
-    flashromcmd=/usr/sbin/flashrom
+    #force stumpy to use newer flashrom binary under ChromeOS
+    if [[ "${device^^}" = "STUMPY" ]]; then
+        flashromcmd=/tmp/boot/util/flashrom
+    else    
+        flashromcmd=/usr/sbin/flashrom
+    fi
     cbfstoolcmd=/tmp/boot/util/cbfstool
     gbbutilitycmd=$(which gbb_utility)
 else
@@ -351,141 +352,139 @@ if [ $? -ne 0 ]; then
     return 1
 fi
 
-#get device firmware info
-echo -e "\nGetting device/system info..."
-#read entire firmware
-${flashromcmd} -r /tmp/bios.bin > /dev/null 2>&1
-if [ $? -ne 0 ]; then 
-    echo_red "\nUnable to read current firmware; cannot continue."
-    echo_red "Either add 'iomem=relaxed' to your kernel parameters,\nor trying running from a Live USB with a more permissive kernel (eg, Ubuntu)."
-    echo_red "See https://www.flashrom.org/FAQ for more info."
-    return 1;
-fi
-#break out BOOT_STUB and RW_LEGACY pieces, check for validity
-${cbfstoolcmd} bios.bin read -r BOOT_STUB -f bs.tmp >/dev/null 2>&1
-if [ $? -eq 0 ]; then
-    #see if BOOT_STUB is stock
-    ${cbfstoolcmd} bs.tmp extract -n fallback/vboot -f vb.tmp -m x86 >/dev/null 2>&1
-    [[ $? -ne 0 && "$device" != "Link" ]] && isBootStub=true
-    #check RW_LEGACY
-    ${cbfstoolcmd} bios.bin read -r RW_LEGACY -f rwl.tmp >/dev/null 2>&1
-    [[ $? -eq 0 ]] && hasRwLegacy=true
-else
-    # check 'coreboot' for SKL
-    ${cbfstoolcmd} bios.bin read -r COREBOOT -f cb.tmp >/dev/null 2>&1
-    if [[ $? -eq 0 && "$isSkylake" = true ]]; then
-        hasRwLegacy=true
-    else 
-        if [ "$isChromeOS" = false ]; then
-        #non-stock firmware
-            isStock=false
-            isFullRom=true
-        fi
-    fi
-fi
-#set firmware type
-if [[ "$isChromeOS" = true && "$isStock" = true && "$isBootStub" = false && "$isSkylake" = false ]]; then
-    firmwareType="Stock ChromeOS"
-elif [[ "$isBootStub" = true ]]; then
-    firmwareType="Stock w/modified BOOT_STUB"
-elif [[ "$isFullRom" = true ]]; then
-    #get more info
-    fwVer=$(dmidecode -s bios-version)
-    fwDate=$(dmidecode -s bios-release-date)
-    if [[ -d /sys/firmware/efi ]]; then
-        firmwareType="Full ROM / UEFI ($fwVer $fwDate)"
-    else
-        firmwareType="Full ROM / Legacy ($fwVer $fwDate)"
-    fi
-elif [[ "$isChromeOS" = false && "$hasRwLegacy" = true ]]; then
-    firmwareType="Stock w/RW_LEGACY support"
-elif [[ "$isChromeOS" = true && "$isBaytrail" = true && "$hasRwLegacy" = true ]]; then
-    firmwareType="Stock w/RW_LEGACY support"
-elif [[ "$isSkylake" = true ]]; then
-    firmwareType="Stock w/RW_LEGACY support"
-fi
-
-#check WP status
-if [[ "$isChromeOS" = true ]]; then
-    [[ "$(crossystem wpsw_cur)" == "1" || "$(crossystem wpsw_boot)" == "1" ]] && wpEnabled=true
-else
-    ${flashromcmd} --wp-disable > /dev/null 2>&1
-    [ $? -ne 0 ] && wpEnabled=true
-fi
-
 #get full device info
-[ "$isChromeOS" = true ] && _hwid=$(crossystem hwid) || _hwid=${device^^}
+if [[ "$isChromeOS" = true ]]; then
+    _hwid=$(crossystem hwid | sed 's/ /_/g')
+    boardName=$(crossystem hwid | awk 'NR==1{print $1}')
+else
+    _hwid=${device^^}
+    boardName=${device^^}
+fi
+
 case "${_hwid}" in
     ACER_ZGB*)              _x='PNV|Acer AC700 Chromebook' ;;
+    AKALI*)                 _x='KBL|Acer Chromebook 13 / Spin 13' ;;
+    ASTRONAUT*)             _x='APL|Acer Chromebook 11 (C732*)' ;;
     ASUKA*)                 _x='SKL|Dell Chromebook 13 (3380)' ;;
     AURON_PAINE*)           _x='BDW|Acer Chromebook 11 (C740)' ;;
     AURON_YUNA*)            _x='BDW|Acer Chromebook 15 (CB5-571, C910)' ;;
     BANJO*)                 _x='BYT|Acer Chromebook 15 (CB3-531)' ;;
     BANON*)                 _x='BSW|Acer Chromebook 15 (CB3-532)' ;;
+    BLACKTIP*)              _x='APL|White Label Chrombook' ;;
+    BLEEMO*)                _x='KBL|Asus Chromebox 3 / CN65 (Core i7)' ; device="fizz";;
     BUDDY*)                 _x='BDW|Acer Chromebase 24' ;;
     BUTTERFLY*)             _x='SNB|HP Pavilion Chromebook 14' ;;
     CANDY*)                 _x='BYT|Dell Chromebook 11' ;;
+    CAROLINE*)              _x='SKL|Samsung Chromebook Pro' ;;
     CAVE*)                  _x='SKL|ASUS Chromebook Flip C302' ;;
     CELES*)                 _x='BSW|Samsung Chromebook 3' ;;
     CHELL*)                 _x='SKL|HP Chromebook 13 G1' ;;
     CLAPPER*)               _x='BYT|Lenovo N20/N20P Chromebook' ;;
     CYAN*)                  _x='BSW|Acer Chromebook R11 (C738T)' ;;
     EDGAR*)                 _x='BSW|Acer Chromebook 14 (CB3-431)' ;;
-    ENGUARDE_???-???-??A*)  _x='BYT|CTL N6 Education Chromebook' ;;
-    ENGUARDE_???-???-??B*)  _x='BYT|M&A Chromebook' ;;
-    ENGUARDE_???-???-??C*)  _x='BYT|Senkatel C1101 Chromebook' ;;
-    ENGUARDE_???-???-??D*)  _x='BYT|Edxis Education Chromebook' ;;
-    ENGUARDE_???-???-??E*)  _x='BYT|Lenovo N21 Chromebook' ;;
-    ENGUARDE_???-???-??F*)  _x='BYT|RGS Education Chromebook' ;;
-    ENGUARDE_???-???-??G*)  _x='BYT|Crambo Chromebook' ;;
-    ENGUARDE_???-???-??H*)  _x='BYT|True IDC Chromebook' ;;
-    ENGUARDE_???-???-??I*)  _x='BYT|Videonet Chromebook' ;;
-    ENGUARDE_???-???-??J*)  _x='BYT|eduGear Chromebook R' ;;
-    ENGUARDE_???-???-??K*)  _x='BYT|ASI Chromebook' ;;
-    ENGUARDE*)              _x='BYT|201x|(unknown ENGUARDE)' ;;
+    ENGUARDE_???-???-??A*)  _x='BYT|CTL N6 Education Chromebook' ; device="enguarde";;
+    ENGUARDE_???-???-??B*)  _x='BYT|M&A Chromebook' ; device="enguarde";;
+    ENGUARDE_???-???-??C*)  _x='BYT|Senkatel C1101 Chromebook' ; device="enguarde";;
+    ENGUARDE_???-???-??D*)  _x='BYT|Edxis Education Chromebook' ; device="enguarde";;
+    ENGUARDE_???-???-??E*)  _x='BYT|Lenovo N21 Chromebook' ; device="enguarde";;
+    ENGUARDE_???-???-??F*)  _x='BYT|RGS Education Chromebook' ; device="enguarde";;
+    ENGUARDE_???-???-??G*)  _x='BYT|Crambo Chromebook' ; device="enguarde";;
+    ENGUARDE_???-???-??H*)  _x='BYT|True IDC Chromebook' ; device="enguarde";;
+    ENGUARDE_???-???-??I*)  _x='BYT|Videonet Chromebook' ; device="enguarde";;
+    ENGUARDE_???-???-??J*)  _x='BYT|eduGear Chromebook R' ; device="enguarde";;
+    ENGUARDE_???-???-??K*)  _x='BYT|ASI Chromebook' ; device="enguarde";;
+    ENGUARDE*)              _x='BYT|(multiple device matches)' ;;
+    EPAULETTE*)             _x='APL|UNK Acer Chromebook ' ;;
+    EVE*)                   _x='KBL|Google Pixelbook' ;;
     FALCO*)                 _x='HSW|HP Chromebook 14' ;;
+    FIZZ)                   _x='KBL|TBD KBL Chromebox' ;;
     GANDOF*)                _x='BDW|Toshiba Chromebook 2 (2015) CB30/CB35' ;;
     GLIMMER*)               _x='BYT|Lenovo ThinkPad 11e/Yoga Chromebook' ;;
     GNAWTY*)                _x='BYT|Acer Chromebook 11 (CB3-111/131,C730/C730E/C735)' ;;
-    GUADO*)                 _x='BDW|ASUS Chromebox CN62' ;;
+    GUADO*)                 _x='BDW|ASUS Chromebox 2 / CN62' ;;
     HELI*)                  _x='BYT|Haier Chromebook G2' ;;
     IEC_MARIO)              _x='PNV|Google Cr-48' ;;
     KEFKA*)                 _x='BSW|Dell Chromebook 11 (3180,3189)' ;;
-    KIP*)                   _x='BYT|HP Chromebook 11 G3/G4' ;;
+    KENCH*)                 _x='KBL|HP Chromebox G2' ; device="fizz";;
+    KIP*)                   _x='BYT|HP Chromebook 11 G3/G4, 14 G4' ;;
     LARS*)                  _x='SKL|Acer Chromebook 14 for Work' ;;
+    LAVA*)                  _x='APL|Acer Chromebook Spin 11 CP311' ;;
     LEON*)                  _x='HSW|Toshiba CB30/CB35 Chromebook' ;;
+    LILI*)                  _x='SKL|Acer Chromebook 11 (C771, C771T)' ;;
     LINK*)                  _x='IVB|Google Chromebook Pixel 2013' ;;
     LULU*)                  _x='BDW|Dell Chromebook 13 (7310)' ;;
     LUMPY*)                 _x='SNB|Samsung Chromebook Series 5 550' ;;
     MCCLOUD*)               _x='HSW|Acer Chromebox CXI' ;;
     MONROE*)                _x='HSW|LG Chromebase' ;;
+    NAUTILUS*)              _x='KBL|Samsung Chromebook Plus V2' ;;
+    NASHER360*)             _x='APL|Dell Chromebook 11 2-in-1 5190' ; device="nasher";;
+    NASHER*)                _x='APL|Dell Chromebook 11 5190' ;;
     NINJA*)                 _x='BYT|AOpen Chromebox Commercial' ;;
+    NOCTURNE*)              _x='KBL|Google Pixel Slate' ;;
     ORCO*)                  _x='BYT|Lenovo Ideapad 100S Chromebook' ;;
     PAINE*)                 _x='BDW|Acer Chromebook 11 (C740)' ;;
+    PANTHEON*)              _x='KBL|Lenovo Yoga Chromebook C630' ;;
     PANTHER*)               _x='HSW|ASUS Chromebox CN60' ;;
     PARROT*)                _x='SNB|Acer C7/C710 Chromebook' ;;
     PEPPY*)                 _x='HSW|Acer C720/C720P Chromebook' ;;
+    PYRO*)                  _x='APL|Lenovo Thinkpad 11e/Yoga Chromebook (G4)' ;;
     QUAWKS*)                _x='BYT|ASUS Chromebook C300' ;;
-    REKS*)                  _x='BSW|Lenovo N22 Chromebook' ;;
-    RELM*)                  _x='BSW|Acer Chromebook 11 N7 (C731)' ;;
+    REEF_???-C*)            _x='APL|ASUS Chromebook C213NA' ; device="reef";;
+    REEF*)                  _x='APL|Acer Chromebook Spin 11 (R751T)' ; device="reef";;
+    REKS_???-???-???-B*)    _x='BSW|2016|Lenovo N42 Chromebook' ; device="reks";;
+    REKS_???-???-???-C*)    _x='BSW|2017|Lenovo N23 Chromebook (Touch)' device="reks";;
+    REKS_???-???-???-D*)    _x='BSW|2017|Lenovo N23 Chromebook' device="reks";;
+    REKS_???-???-???-*)     _x='BSW|2016|Lenovo N22 Chromebook' device="reks";;
+    REKS*)                  _x='BSW|2016|(unknown REKS)' ;;
+    RELM_???-B*)            _x='BSW|CTL NL61 Chromebook' ; device="relm";;
+    RELM_???-C*)            _x='BSW|Edxis Education Chromebook' ; device="relm";;
+    RELM_???-F*)            _x='BSW|Mecer V2 Chromebook' ; device="relm";;
+    RELM_???-G*)            _x='BSW|HP Chromebook 11 G5 EE' ; device="relm";;
+    RELM_???-H*)            _x='BSW|Acer Chromebook 11 N7 (C731)' ; device="relm";;
+    RELM_???-Z*)            _x='BSW|Quanta OEM Chromebook' ; device="relm";;
+    RELM*)                  _x='BSW|(unknown RELM)' ; device="relm";;
     RIKKU*)                 _x='BDW|Acer Chromebox CXI2' ;;
+    ROBO360*)               _x='APL|Lenovo 500e Chromebook' ; device="robo";;
+    ROBO*)                  _x='APL|Lenovo 100e Chromebook' ;;
     SAMS_ALEX*)             _x='PNV|Samsung Chromebook Series 5' ;;
     SAMUS*)                 _x='BDW|Google Chromebook Pixel 2015' ;;
+    SAND*)                  _x='APL|Acer Chromebook 15 (CB515-1HT)' ;;
+    SANTA*)                 _x='APL|Acer Chromebook 11 (CB311-8H)' ;;
     SENTRY*)                _x='SKL|Lenovo Thinkpad 13 Chromebook' ;;
     SETZER*)                _x='BSW|HP Chromebook 11 G5' ;;
+    SION*)                  _x='KBL|Acer Chromebox CXI3' ; device="fizz";;
+    SNAPPY_???-A*)          _x='APL|HP Chromebook x360 11 G1 EE' ; device="snappy";;
+    SNAPPY_???-B*)          _x='APL|HP Chromebook 11 G6 EE' device="snappy";;
+    SNAPPY_???-C*)          _x='APL|HP Chromebook 14 G5' device="snappy";;
+    SNAPPY*)                _x='APL|(unknown SNAPPY)' device="snappy";;
+    SONA*)                  _x='KBL|HP Chromebook x360 14' ;;
+    SORAKA*)                _x='KBL|HP Chromebook x2' ;;
     SQUAWKS*)               _x='BYT|ASUS Chromebook C200' ;;
     STOUT*)                 _x='IVB|Lenovo Thinkpad X131e Chromebook' ;;
     STUMPY*)                _x='SNB|Samsung Chromebox Series 3' ;;
     SUMO*)                  _x='BYT|AOpen Chromebase Commercial' ;;
     SWANKY*)                _x='BYT|Toshiba Chromebook 2 (2014) CB30/CB35' ;;
-    TERRA13*)               _x='BSW|ASUS Chromebook C300SA/C301SA' ;;
-    TERRA*)                 _x='BSW|ASUS Chromebook C202SA' ;;
+    TEEMO*)                 _x='KBL|Asus Chromebox 3 / CN65' ; device="fizz";;
+    TERRA_???-???-???-A*)   _x='BSW|ASUS Chromebook C202SA' ; device="terra";;
+    TERRA_???-???-???-B*)   _x='BSW|ASUS Chromebook C300SA/C301SA' ; device="terra";;
+    TERRA*)                 _x='BSW|ASUS Chromebook C202SA, C300SA/C301SA' ; device="terra";;
     TIDUS*)                 _x='BDW|Lenovo ThinkCentre Chromebox' ;;
-    TRICKY*)                _x='HSW|Dell Chromebox' ;;
+    TRICKY*)                _x='HSW|Dell Chromebox 3010' ;;
     ULTIMA*)                _x='BSW|Lenovo ThinkPad 11e/Yoga Chromebook (G3)' ;;
+    VAYNE*)                 _x='KBL|Dell Inspiron Chromebook 14 (7486)' ;;
     WINKY*)                 _x='BYT|Samsung Chromebook 2 (XE500C12)' ;;
+    WIZPIG_???-???-??A*)    _x='BSW|CTL Chromebook J5' ;;
+    WIZPIG_???-???-??B*)    _x='BSW|Edugear CMT Chromebook' ;;
+    WIZPIG_???-???-??C*)    _x='BSW|Haier Convertible Chromebook 11 C' ;;
+    WIZPIG_???-???-??D*)    _x='BSW|Viglen Chromebook 360' ;;
+    WIZPIG_???-???-??G*)    _x='BSW|Prowise ProLine Chromebook' ;;
+    WIZPIG_???-???-??H*)    _x='BSW|PCMerge Chromebook PCM-116T-432B' ;;
+    WIZPIG_???-???-??I*)    _x='BSW|Multilaser M11C Chromebook' ;;
+    WIZPIG*)                _x='BSW|(unknown WIZPIG)' ;;
     WOLF*)                  _x='HSW|Dell Chromebook 11' ;;
-    YUNA*)                  _x='BDW|Acer Chromebook 15 (CB5-571, C910)' ;;
+    WUKONG_???-???-???-??C*) _x='KBL|ViewSonic NMP660 Chromebox' ; device="fizz";;
+    WUKONG*)                _x='KBL|CTL Chromebox CBx1' ; device="fizz";;
+    YUNA*)                  _x='BDW|Acer Chromebook 15 (CB5-571, C910)' ; device="auron_yuna";;
     ZAKO*)                  _x='HSW|HP Chromebox CB1' ;;
 esac
 
@@ -503,8 +502,101 @@ BYT) deviceCpuType="Intel BayTrail" ;;
 BDW) deviceCpuType="Intel Broadwell" ;;
 BSW) deviceCpuType="Intel Braswell" ;;
 SKL) deviceCpuType="Intel Skylake" ;;
+APL) deviceCpuType="Intel ApolloLake" ;;
+KBL) deviceCpuType="Intel KabyLake" ;;
 #*)   deviceCpuType="(unrecognized)" ;;
 esac
+
+[[ "${hsw_boxes[@]}" =~ "$device" ]] && isHswBox=true
+[[ "${bdw_boxes[@]}" =~ "$device" ]] && isBdwBox=true
+[[ "${hsw_books[@]}" =~ "$device" ]] && isHswBook=true
+[[ "${bdw_books[@]}" =~ "$device" ]] && isBdwBook=true
+[[ "${baytrail[@]}" =~ "$device" ]] && isBaytrail=true
+[[ "${braswell[@]}" =~ "$device" ]] && isBraswell=true
+[[ "${skylake[@]}" =~ "$device" ]] && isSkylake=true
+[[ "${snb_ivb[@]}" =~ "$device" ]] && isSnbIvb=true
+[[ "${apl[@]}" =~ "$device" ]] && isApl=true
+[[ "${kbl[@]}" =~ "$device" ]] && isKbl=true
+[[ "${shellballs[@]}" =~ "$device" ]] && hasShellball=true
+[[ "${UEFI_ROMS[@]}" =~ "$device" ]] && hasUEFIoption=true
+[[ "${LegacyROMs[@]}" =~ "$device" ]] && hasLegacyOption=true
+[[ "$isHswBox" = true || "$isBdwBox" = true || "$isHswBook" = true || "$isBdwBook" = true || "$isBaytrail" = true \
+    || "$isBraswell" = true || "$isSkylake" = true || "$isSnbIvb" = "true" || "$isApl" = "true" || "$isKbl" = "true" ]] || isUnsupported=true
+[[ "$isHswBox" = true || "$isBdwBox" = true || "${kbl_boxes[@]}" =~ "$device" || "$device" = "ninja" || "$device" = "buddy" ]] && hasLAN=true
+
+#get device firmware info
+echo -e "\nGetting device/system info..."
+#read entire firmware
+${flashromcmd} -r /tmp/bios.bin > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo_red "\nUnable to read current firmware; cannot continue."
+    echo_red "Either add 'iomem=relaxed' to your kernel parameters,\nor trying running from a Live USB with a more permissive kernel (eg, Ubuntu)."
+    echo_red "See https://www.flashrom.org/FAQ for more info."
+    return 1;
+fi
+#break out BOOT_STUB and RW_LEGACY pieces, check for validity
+${cbfstoolcmd} bios.bin read -r BOOT_STUB -f bs.tmp >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    #see if BOOT_STUB is stock
+    ${cbfstoolcmd} bs.tmp extract -n fallback/vboot -f vb.tmp -m x86 >/dev/null 2>&1
+    [[ $? -ne 0 && "${device^^}" != "LINK" ]] && isBootStub=true
+    #check RW_LEGACY
+    ${cbfstoolcmd} bios.bin read -r RW_LEGACY -f rwl.tmp >/dev/null 2>&1
+    [[ $? -eq 0 ]] && hasRwLegacy=true
+else
+    # check 'coreboot' for SKL/KBL/APL
+    ${cbfstoolcmd} bios.bin read -r COREBOOT -f cb.tmp >/dev/null 2>&1
+    if [[ $? -eq 0 && ( "$isSkylake" = true || "$isApl" = true || "$isKbl" = true) ]]; then
+        #check for verstage
+        ${cbfstoolcmd} bios.bin extract -n fallback/verstage -f /dev/null -m x86 >/dev/null 2>&1
+        if [[ $? -eq 0 ]]; then
+            hasRwLegacy=true
+        else
+            #non-stock firmware
+            isStock=false
+            isFullRom=true
+        fi
+    else
+        if [ "$isChromeOS" = false ]; then
+        #non-stock firmware
+            isStock=false
+            isFullRom=true
+        fi
+    fi
+fi
+#set firmware type
+if [[ "$isChromeOS" = true && "$isStock" = true && "$isBootStub" = false && "$isSkylake" = false ]]; then
+    firmwareType="Stock ChromeOS"
+elif [[ "$isBootStub" = true ]]; then
+    firmwareType="Stock w/modified BOOT_STUB"
+elif [[ "$isFullRom" = true ]]; then
+    #get more info
+    fwVer=$(dmidecode -s bios-version)
+    fwDate=$(dmidecode -s bios-release-date)
+    if [[ -d /sys/firmware/efi ]]; then
+        isUEFI=true
+        firmwareType="Full ROM / UEFI ($fwVer $fwDate)"
+    else
+        firmwareType="Full ROM / Legacy ($fwVer $fwDate)"
+    fi
+elif [[ "$isChromeOS" = false && "$hasRwLegacy" = true ]]; then
+    firmwareType="Stock w/RW_LEGACY support"
+elif [[ "$isChromeOS" = true && "$isBaytrail" = true && "$hasRwLegacy" = true ]]; then
+    firmwareType="Stock w/RW_LEGACY support"
+elif [[ "$isSkylake" = true || "$isKbl" = true ]]; then
+    firmwareType="Stock w/RW_LEGACY support"
+fi
+
+#check WP status
+
+#save SW WP state
+${flashromcmd} --wp-status 2>&1 | grep enabled >/dev/null
+[[ $? -eq 0 ]] && swWp="enabled" || swWp="disabled"
+#test disabling SW WP to see if HW WP enabled
+${flashromcmd} --wp-disable > /dev/null 2>&1
+[[ $? -ne 0 ]] && wpEnabled=true
+#restore previous SW WP state
+[[ ${swWp} = "enabled" ]] && ${flashromcmd} --wp-enable > /dev/null 2>&1
 
 return 0
 }
@@ -513,7 +605,7 @@ return 0
 ###########
 # Cleanup #
 ###########
-function cleanup() 
+function cleanup()
 {
 #remove temp files, unmount temp stuff
 if [ -d /tmp/boot/util ]; then
